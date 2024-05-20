@@ -110,5 +110,5 @@ kotlin {
 }
 
 dependencies {
-    implementation("org.jsoup:jsoup:1.13.1")
+    implementation("org.jsoup:jsoup:1.17.2")
 }
