@@ -1,1 +1,1 @@
-rootProject.name = "color_names"
+rootProject.name = "riverpod_wrapper"

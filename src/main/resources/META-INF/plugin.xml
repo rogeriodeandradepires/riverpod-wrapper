@@ -1,37 +1,67 @@
 <idea-plugin>
-    <id>me.pandras.color_names</id>
-    <!--suppress PluginXmlCapitalization -->
-    <name>Color Names</name>
-    <version>2.0.0</version>
+    <id>me.pandras.riverpod_wrapper</id>
+    <name>Riverpod Wrapper</name>
+    <version>1.0.0</version>
     <vendor email="contact@pandras.me">PANDRAS</vendor>
-    <idea-version since-build="233.0"/>
-
     <description><![CDATA[
-        Plugin for retrieving approximate color names for hex colors from https://www.color-name.com/.
-        Select a HEX color String, right-click and choose Color Name to get a cool name for it.
-    ]]></description>
-
+    A plugin to wrap Flutter widgets into Hooks Riverpod's widgets: Consumer and HookConsumer.
+    Provides functionalities to convert between ConsumerWidget and ConsumerStatefulWidget,
+    and between HookConsumerWidget and StatefulHookConsumerWidget.
+    Also includes the ability to unwrap and remove Riverpod Consumer or HookConsumer widgets while keeping their child.
+]]></description>
     <change-notes><![CDATA[
         <ul>
             <li>Initial release.</li>
         </ul>
     ]]></change-notes>
-
+    <idea-version since-build="241.0" until-build="241.*"/>
     <depends>com.intellij.modules.platform</depends>
-
-    <resource-bundle>messages.ColorNamesBundle</resource-bundle>
+    <depends>io.flutter</depends>
+    <depends>org.jetbrains.android</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <notificationGroup id="ColorNamesNotificationGroup" displayType="TOOL_WINDOW" toolWindowId="Color Names" />
+        <postStartupActivity implementation="me.pandras.riverpod_wrapper.FlutterPluginEnabler" />
+        <intentionAction>
+            <className>me.pandras.riverpod_wrapper.ConvertConsumerStatefulToConsumerWidgetIntentionAction</className>
+            <category>Riverpod Wrapper</category>
+            <description>intentionDescriptions/ConvertConsumerStatefulToConsumerWidgetIntentionAction/description.html</description>
+            <icon path="/icons/riverpod-wrapper-icon.svg"/>
+        </intentionAction>
+        <intentionAction>
+            <className>me.pandras.riverpod_wrapper.ConvertConsumerWidgetToConsumerStatefulIntentionAction</className>
+            <category>Riverpod Wrapper</category>
+            <description>intentionDescriptions/ConvertConsumerWidgetToConsumerStatefulIntentionAction/description.html</description>
+            <icon path="/icons/riverpod-wrapper-icon.svg"/>
+        </intentionAction>
+        <intentionAction>
+            <className>me.pandras.riverpod_wrapper.ConvertStatefulHookConsumerToHookConsumerWidgetIntentionAction</className>
+            <category>Riverpod Wrapper</category>
+            <description>intentionDescriptions/ConvertStatefulHookConsumerToHookConsumerWidgetIntentionAction/description.html</description>
+            <icon path="/icons/riverpod-wrapper-icon.svg"/>
+        </intentionAction>
+        <intentionAction>
+            <className>me.pandras.riverpod_wrapper.ConvertHookConsumerWidgetToStatefulHookConsumerIntentionAction</className>
+            <category>Riverpod Wrapper</category>
+            <description>intentionDescriptions/ConvertHookConsumerWidgetToStatefulHookConsumerIntentionAction/description.html</description>
+            <icon path="/icons/riverpod-wrapper-icon.svg"/>
+        </intentionAction>
+        <intentionAction>
+            <className>me.pandras.riverpod_wrapper.RemoveRiverpodWidgetIntentionAction</className>
+            <category>Riverpod Wrapper</category>
+            <description>intentionDescriptions/RemoveRiverpodWidgetIntentionAction/description.html</description>
+            <icon path="/icons/riverpod-wrapper-icon.svg"/>
+        </intentionAction>
+        <intentionAction>
+            <className>me.pandras.riverpod_wrapper.WrapWithConsumerIntentionAction</className>
+            <category>Riverpod Wrapper</category>
+            <description>intentionDescriptions/WrapWithConsumerIntentionAction/description.html</description>
+            <icon path="/icons/riverpod-wrapper-icon.svg"/>
+        </intentionAction>
+        <intentionAction>
+            <className>me.pandras.riverpod_wrapper.WrapWithHookConsumerIntentionAction</className>
+            <category>Riverpod Wrapper</category>
+            <description>intentionDescriptions/WrapWithHookConsumerIntentionAction/description.html</description>
+            <icon path="/icons/riverpod-wrapper-icon.svg"/>
+        </intentionAction>
     </extensions>
-
-    <actions>
-        <action id="ColorNames"
-                class="me.pandras.color_names.ColorNamesAction"
-                text="Get Color Name"
-                description="Fetches the color name for a HEX code"
-                icon="/color-names.svg">
-            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
-        </action>
-    </actions>
 </idea-plugin>

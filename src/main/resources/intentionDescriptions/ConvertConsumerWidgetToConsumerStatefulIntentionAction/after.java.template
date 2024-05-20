@@ -1,0 +1,14 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class Example extends ConsumerStatefulWidget {
+  @override
+  _ExampleState createState() => _ExampleState();
+}
+
+class _ExampleState extends ConsumerState<Example> {
+  @override
+  Widget build(BuildContext context) {
+    return Container();
+  }
+}

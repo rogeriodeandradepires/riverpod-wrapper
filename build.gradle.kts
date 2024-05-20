@@ -32,6 +32,8 @@ intellij {
 
     // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file.
     plugins = properties("platformPlugins").map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
+    version.set("2024.1.1")
+    plugins = listOf("org.jetbrains.android:241.15989.150", "io.flutter:79.1.3", "Dart:241.15989.9")
 }
 
 changelog {

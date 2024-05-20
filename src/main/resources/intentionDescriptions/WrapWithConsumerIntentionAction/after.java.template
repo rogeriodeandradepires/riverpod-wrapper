@@ -1,0 +1,7 @@
+Widget build(BuildContext context) {
+    return Consumer(
+        builder: (context, watch, child) {
+            return MyWidget();
+        },
+    );
+}

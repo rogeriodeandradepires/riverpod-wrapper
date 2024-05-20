@@ -1,30 +1,30 @@
-# Color Names
+# Riverpod Wrapper
 
-![Build](https://github.com/pandras/color_names/workflows/Build/badge.svg)
-[![Version](https://img.shields.io/jetbrains/plugin/v/me.pandras.color_names.svg)](https://plugins.jetbrains.com/plugin/me.pandras.color_names)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/me.pandras.color_names.svg)](https://plugins.jetbrains.com/plugin/me.pandras.color_names)
+[![Version](https://img.shields.io/jetbrains/plugin/v/me.pandras.riverpod_wrapper.svg)](https://plugins.jetbrains.com/plugin/me.pandras.riverpod_wrapper)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/me.pandras.riverpod_wrapper.svg)](https://plugins.jetbrains.com/plugin/me.pandras.riverpod_wrapper)
 
 <!-- Plugin description -->
-🎨 **Unveil the Hidden Names of Colors in Your Code with Color Names Plugin!** 🌈
+🔧 **Simplify Your Flutter Development with Riverpod Wrapper Plugin!** 🚀
 
-Are you curious about the names behind those mysterious HEX codes in your codebase? Wonder no more! The **Color Names** plugin for IntelliJ-based IDEs transforms your coding experience by revealing the actual names of colors directly within your editor.
+The **Riverpod Wrapper** plugin for IntelliJ-based IDEs enhances your Flutter development experience by providing powerful tools to work with Hooks Riverpod's widgets. This plugin offers seamless integration and intuitive actions that make managing Flutter widgets easier and more efficient.
 
-With **Color Names**, every HEX code, from the understated `#FAFAFA` to the bold `#FF6347`, is no longer just a string of characters. Instead, it blossoms into a named color that you can recognize and remember. Say goodbye to endless Googling of color codes during your development process!
+### Key Features:
+- **Wrap Widgets Easily:** Quickly wrap your Flutter widgets into Hooks Riverpod's widgets such as `Consumer` and `HookConsumer`.
+- **Conversion Intention Actions:** Convert `ConsumerWidget` to `ConsumerStatefulWidget` and vice versa with a single click. Also, convert `HookConsumerWidget` to `StatefulHookConsumerWidget` and vice versa.
+- **Remove Widgets:** Remove or unwrap specific widgets like `Consumer` and `HookConsumer` while preserving their child content.
+- **Enhanced Productivity:** Streamline your workflow with easy-to-use intention actions directly within your IDE.
 
-Here’s what makes **Color Names** a must-have in your development toolkit:
-- **Instant Recognition:** Hover over any HEX code in your code, and our plugin will display its corresponding color name.
-- **Enhanced Productivity:** No more switching tabs to find color names. It’s all available within your IDE.
-- **Creative Inspiration:** Discover the real names of the colors you use and get inspired for your UI/UX designs.
+### Why Use Riverpod Wrapper?
+- **Time-Saving:** Automate repetitive tasks and focus on what matters most – writing great code.
+- **Intuitive:** Designed to be easy-to-use for both beginners and experienced developers.
+- **Seamless Integration:** Works seamlessly within your existing IntelliJ environment without disrupting your workflow.
 
-**Color Names** seamlessly integrates into your IntelliJ environment, offering a lightweight and intuitive user interface that does not disrupt your workflow. Whether you're a seasoned developer or a beginner, this plugin ensures that you’ll interact with colors more meaningfully in your projects.
+Ready to boost your Flutter development productivity? Install **Riverpod Wrapper** now and experience the convenience of advanced widget management!
 
-Ready to add a splash of knowledge to your coding sessions? Install **Color Names** now and enhance your coding aesthetics and efficiency!
-
-🌟 **Experience the magic of knowing color names instantly and elevate your coding to a new level of convenience and style!** 🌟
 <!-- Plugin description end -->
 
 ### License
-                   
+
 ```
 Copyright 2024 Pandras
 Licensed under the Apache License, Version 2.0 (the "License");
