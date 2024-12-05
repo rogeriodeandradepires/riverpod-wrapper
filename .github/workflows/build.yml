@@ -41,7 +41,7 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Validate wrapper
       - name: Gradle Wrapper Validation
@@ -102,7 +102,7 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Setup Gradle
       - name: Setup Gradle
@@ -135,7 +135,7 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Setup Gradle
       - name: Setup Gradle
@@ -173,7 +173,7 @@ jobs:
 #
 #      # Check out current repository
 #      - name: Fetch Sources
-#        uses: actions/checkout@v3
+#        uses: actions/checkout@v4
 #
 #      # Run Qodana inspections
 #      - name: Qodana - Code Inspection
@@ -194,7 +194,7 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Remove old release drafts by using the curl request for the available releases with a draft flag
       - name: Remove Old Release Drafts
