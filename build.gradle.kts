@@ -40,6 +40,11 @@ dependencies {
 intellijPlatform {
     buildSearchableOptions = false
 
+    // Nothing to instrument: the plugin is pure Kotlin, with no .form files and no @NotNull-annotated
+    // Java sources. The task is also what fails on Linux CI against an Android Studio distribution
+    // (':instrumentCode' > "1 >= 1" out of the Ant instrumentation task).
+    instrumentCode = false
+
     pluginConfiguration {
         name = properties("pluginName")
         version = properties("pluginVersion")
