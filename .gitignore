@@ -14,6 +14,11 @@ Icon
 .gradle
 build/
 
+### IntelliJ Platform Gradle Plugin
+# Cache of downloaded IDEs and plugin dependencies
+.intellijPlatform
+.qodana
+
 ### Terraform template
 #  Local .terraform directories
 **/.terraform/*
