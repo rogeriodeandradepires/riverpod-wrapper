@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-29
+
+### Changed
+- Support for Android Studio Quail (2026.1, build 261) and IntelliJ Platform 261.
+- Removed the `until-build` upper bound so the plugin stays installable on newer IDE releases.
+- Migrated the build to the IntelliJ Platform Gradle Plugin 2.x, Gradle 9.6.1, Kotlin 2.3.20 and Java 21.
+- Replaced the deprecated `StartupActivity` with `ProjectActivity`.
+
 ## [1.0.0] - 2024-05-17
 
 ### Added
@@ -13,5 +21,6 @@
 - Intention actions to convert a HookConsumerWidget to StatefulHookConsumerWidget and vice versa.
 - Functionality to remove or unwrap specific widgets like Consumer and HookConsumer while preserving their child content.
 
-[Unreleased]: https://github.com/rogeriodeandradepires/riverpod_wrapper/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/rogeriodeandradepires/riverpod_wrapper/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/rogeriodeandradepires/riverpod_wrapper/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/rogeriodeandradepires/riverpod_wrapper/commits/v1.0.0
