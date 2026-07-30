@@ -3,11 +3,12 @@ import org.jetbrains.changelog.markdownToHTML
 
 fun properties(key: String) = providers.gradleProperty(key)
 fun environment(key: String) = providers.environmentVariable(key)
+fun listProperty(key: String) = properties(key).map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
 
 plugins {
     java
     alias(libs.plugins.kotlin)
-    alias(libs.plugins.gradleIntelliJPlugin)
+    alias(libs.plugins.intelliJPlatform)
     alias(libs.plugins.changelog)
     alias(libs.plugins.qodana)
 }
@@ -17,49 +18,39 @@ version = properties("pluginVersion").get()
 
 repositories {
     mavenCentral()
-}
 
-sourceSets {
-    main.configure {
-        java.srcDirs.addAll(kotlin.srcDirs)
+    intellijPlatform {
+        defaultRepositories()
     }
 }
 
-intellij {
-    pluginName = properties("pluginName")
-    version = properties("platformVersion")
-    type = properties("platformType")
+dependencies {
+    intellijPlatform {
+        // Android Studio, because the plugin depends on the bundled Android plugin and on Flutter/Dart.
+        androidStudio(properties("platformVersion"))
 
-    // Plugin Dependencies. Uses `platformPlugins` property from the gradle.properties file.
-    plugins = properties("platformPlugins").map { it.split(',').map(String::trim).filter(String::isNotEmpty) }
-    version.set("2024.1.1")
-    plugins = listOf("org.jetbrains.android:241.15989.150", "io.flutter:79.1.3", "Dart:241.15989.9")
-}
+        bundledPlugins(listProperty("platformBundledPlugins"))
+        plugins(listProperty("platformPlugins"))
 
-changelog {
-    groups.empty()
-    repositoryUrl = properties("pluginRepositoryUrl")
-}
-
-qodana {
-    cachePath = provider { file(".qodana").canonicalPath }
-    reportPath = provider { file("build/reports/inspections").canonicalPath }
-    saveReport = true
-    showReport = environment("QODANA_SHOW_REPORT").map { it.toBoolean() }.getOrElse(false)
-}
-
-tasks {
-    wrapper {
-        gradleVersion = properties("gradleVersion").get()
+        pluginVerifier()
+        zipSigner()
     }
+}
 
-    patchPluginXml {
+intellijPlatform {
+    buildSearchableOptions = false
+
+    // Nothing to instrument: the plugin is pure Kotlin, with no .form files and no @NotNull-annotated
+    // Java sources. The task is also what fails on Linux CI against an Android Studio distribution
+    // (':instrumentCode' > "1 >= 1" out of the Ant instrumentation task).
+    instrumentCode = false
+
+    pluginConfiguration {
+        name = properties("pluginName")
         version = properties("pluginVersion")
-        sinceBuild = properties("pluginSinceBuild")
-        untilBuild = properties("pluginUntilBuild")
 
         // Extract the <!-- Plugin description --> section from README.md and provide for the plugin's manifest
-        pluginDescription = providers.fileContents(layout.projectDirectory.file("README.md")).asText.map {
+        description = providers.fileContents(layout.projectDirectory.file("README.md")).asText.map {
             val start = "<!-- Plugin description -->"
             val end = "<!-- Plugin description end -->"
 
@@ -83,34 +74,81 @@ tasks {
                 )
             }
         }
+
+        ideaVersion {
+            sinceBuild = properties("pluginSinceBuild")
+
+            // An empty `pluginUntilBuild` means no upper bound at all, so the plugin keeps working
+            // on IDE releases newer than the one it was built against.
+            val untilBuildValue = properties("pluginUntilBuild").orNull?.takeIf(String::isNotBlank)
+            if (untilBuildValue == null) {
+                untilBuild.set(null as String?)
+            } else {
+                untilBuild = untilBuildValue
+            }
+        }
     }
 
-    // Configure UI tests plugin
-    // Read more: https://github.com/JetBrains/intellij-ui-test-robot
-    runIdeForUiTests {
-        systemProperty("robot-server.port", "8082")
-        systemProperty("ide.mac.message.dialogs.as.sheets", "false")
-        systemProperty("jb.privacy.policy.text", "<!--999.999-->")
-        systemProperty("jb.consents.confirmation.enabled", "false")
+    signing {
+        certificateChain = environment("CERTIFICATE_CHAIN")
+        privateKey = environment("PRIVATE_KEY")
+        password = environment("PRIVATE_KEY_PASSWORD")
     }
 
-    buildSearchableOptions {
-        enabled = false
+    publishing {
+        token = environment("PUBLISH_TOKEN")
+    }
+
+    pluginVerification {
+        ides {
+            recommended()
+        }
+    }
+}
+
+// Configure UI tests plugin
+// Read more: https://github.com/JetBrains/intellij-ui-test-robot
+intellijPlatformTesting.runIde.register("runIdeForUiTests") {
+    task {
+        jvmArgumentProviders += CommandLineArgumentProvider {
+            listOf(
+                "-Drobot-server.port=8082",
+                "-Dide.mac.message.dialogs.as.sheets=false",
+                "-Djb.privacy.policy.text=<!--999.999-->",
+                "-Djb.consents.confirmation.enabled=false",
+            )
+        }
+    }
+
+    plugins {
+        robotServerPlugin()
+    }
+}
+
+changelog {
+    groups.empty()
+    repositoryUrl = properties("pluginRepositoryUrl")
+}
+
+qodana {
+    cachePath = provider { file(".qodana").canonicalPath }
+    resultsPath = provider { file("build/reports/inspections").canonicalPath }
+}
+
+tasks {
+    wrapper {
+        gradleVersion = properties("gradleVersion").get()
     }
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
 kotlin {
-    jvmToolchain(17)
-}
-
-dependencies {
-    implementation("org.jsoup:jsoup:1.13.1")
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+    }
 }

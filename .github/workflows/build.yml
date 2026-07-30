@@ -3,10 +3,10 @@
 # - run 'test' and 'verifyPlugin' tasks,
 # - run Qodana inspections,
 # - run 'buildPlugin' task and prepare artifact for the further tests,
-# - run 'runPluginVerifier' task,
-# - create a draft release.
+# - run 'verifyPlugin' task,
+# - publish a release with the installable plugin zip attached.
 #
-# Workflow is triggered on push and pull_request events.
+# Workflow is triggered on push, pull_request and workflow_dispatch events.
 #
 # GitHub Actions reference: https://help.github.com/en/actions
 #
@@ -19,6 +19,8 @@ on:
     branches: [ main ]
   # Trigger the workflow on any pull request
   pull_request:
+  # Allow building an installable plugin zip on demand, from any branch
+  workflow_dispatch:
 
 jobs:
 
@@ -29,7 +31,7 @@ jobs:
     outputs:
       version: ${{ steps.properties.outputs.version }}
       changelog: ${{ steps.properties.outputs.changelog }}
-      pluginVerifierHomeDir: ${{ steps.properties.outputs.pluginVerifierHomeDir }}
+      artifact: ${{ steps.artifact.outputs.filename }}
     steps:
 
       # Free GitHub Actions Environment Disk Space
@@ -41,15 +43,22 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       # Validate wrapper
       - name: Gradle Wrapper Validation
-        uses: gradle/wrapper-validation-action@v1.1.0
+        uses: gradle/actions/wrapper-validation@v6
+
+      # Setup Java environment for the next steps
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
 
       # Setup Gradle
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/actions/setup-gradle@v6
 
       # Set environment variables
       - name: Export Properties
@@ -59,39 +68,39 @@ jobs:
           PROPERTIES="$(./gradlew properties --console=plain -q)"
           VERSION="$(echo "$PROPERTIES" | grep "^version:" | cut -f2- -d ' ')"
           NAME="$(echo "$PROPERTIES" | grep "^pluginName:" | cut -f2- -d ' ')"
-          CHANGELOG="$(./gradlew getChangelog --unreleased --no-header --console=plain -q)"
+          # Notes for the current version; falls back to [Unreleased] when that section does not exist yet
+          CHANGELOG="$(./gradlew getChangelog --no-header --console=plain -q)"
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "name=$NAME" >> $GITHUB_OUTPUT
-          echo "pluginVerifierHomeDir=~/.pluginVerifier" >> $GITHUB_OUTPUT
-          
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
-          ./gradlew listProductsReleases # prepare list of IDEs for Plugin Verifier
 
       # Build plugin
       - name: Build plugin
         run: ./gradlew buildPlugin
 
-      # Prepare plugin archive content for creating artifact
+      # Locate the built distribution and verify it is a well-formed plugin archive
       - name: Prepare Plugin Artifact
         id: artifact
         shell: bash
         run: |
           cd ${{ github.workspace }}/build/distributions
           FILENAME=`ls *.zip`
-          unzip "$FILENAME" -d content
+          unzip -l "$FILENAME"
 
-          echo "filename=${FILENAME:0:-4}" >> $GITHUB_OUTPUT
+          echo "filename=${FILENAME%.zip}" >> $GITHUB_OUTPUT
 
-      # Store already-built plugin as an artifact for downloading
+      # Store the installable plugin zip as a downloadable artifact.
+      # Download it from the workflow run page, unzip once, then install the
+      # inner .zip via Settings > Plugins > gear icon > Install Plugin from Disk.
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.artifact.outputs.filename }}
-          path: ./build/distributions/content/*/*
+          path: ./build/distributions/*.zip
+          if-no-files-found: error
 
   # Run tests and upload a code coverage report
   test:
@@ -102,11 +111,18 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
+
+      # Setup Java environment for the next steps
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
 
       # Setup Gradle
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/actions/setup-gradle@v6
 
       # Run tests
       - name: Run Tests
@@ -115,14 +131,14 @@ jobs:
       # Collect Tests Result of failed tests
       - name: Collect Tests Result
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: tests-result
           path: ${{ github.workspace }}/build/reports/tests
 
       # Upload Kover report to CodeCov
       - name: Upload Code Coverage Report
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           files: ${{ github.workspace }}/build/reports/kover/xml/report.xml
 
@@ -135,27 +151,35 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
+
+      # Setup Java environment for the next steps
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: 21
 
       # Setup Gradle
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/actions/setup-gradle@v6
 
-      # Cache Plugin Verifier IDEs
-      - name: Setup Plugin Verifier IDEs Cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ needs.build.outputs.pluginVerifierHomeDir }}/ides
-          key: plugin-verifier-${{ hashFiles('build/listProductsReleases.txt') }}
+      # Free GitHub Actions Environment Disk Space
+      # The Plugin Verifier downloads a full Android Studio distribution (~2 GB unpacked).
+      - name: Maximize Build Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
 
       # Run Verify Plugin task and IntelliJ Plugin Verifier tool
       - name: Run Plugin Verification tasks
-        run: ./gradlew runPluginVerifier -Dplugin.verifier.home.dir=${{ needs.build.outputs.pluginVerifierHomeDir }}
+        run: ./gradlew verifyPlugin
 
       # Collect Plugin Verifier Result
       - name: Collect Plugin Verifier Result
         if: ${{ always() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: pluginVerifier-result
           path: ${{ github.workspace }}/build/reports/pluginVerifier
@@ -173,7 +197,7 @@ jobs:
 #
 #      # Check out current repository
 #      - name: Fetch Sources
-#        uses: actions/checkout@v3
+#        uses: actions/checkout@v7
 #
 #      # Run Qodana inspections
 #      - name: Qodana - Code Inspection
@@ -181,10 +205,12 @@ jobs:
 #        with:
 #          cache-default-branch-only: true
 
-  # Prepare a draft release for GitHub Releases page for the manual verification
-  # If accepted and published, release workflow would be triggered
-  releaseDraft:
-    name: Release draft
+  # Publish a public release on the GitHub Releases page with the installable plugin zip attached.
+  # Creating it fires the 'released' event, which runs the Release workflow and publishes the same
+  # version to JetBrains Marketplace. Re-running for an already released version only refreshes the
+  # asset, so the Marketplace publication happens once per version.
+  release:
+    name: Release
     if: github.event_name != 'pull_request'
     needs: [ build, test, verify ]
     runs-on: ubuntu-latest
@@ -194,7 +220,14 @@ jobs:
 
       # Check out current repository
       - name: Fetch Sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
+
+      # Fetch the plugin zip built by the 'build' job so it can be attached to the release
+      - name: Download Plugin Artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: distributions
 
       # Remove old release drafts by using the curl request for the available releases with a draft flag
       - name: Remove Old Release Drafts
@@ -205,15 +238,31 @@ jobs:
             --jq '.[] | select(.draft == true) | .id' \
             | xargs -I '{}' gh api -X DELETE repos/{owner}/{repo}/releases/{}
 
-      # Create a new release draft which is not publicly visible and requires manual acceptance
-      - name: Create Release Draft
+      # Publish the release with the installable plugin zip attached as an asset.
+      # Re-running for a version that was already released refreshes the asset and the notes
+      # instead of failing, so merging to main again without a version bump is safe and does not
+      # re-trigger the Marketplace publication.
+      - name: Publish Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v${{ needs.build.outputs.version }} \
-            --draft \
-            --title "v${{ needs.build.outputs.version }}" \
-            --notes "$(cat << 'EOM'
+          TAG="v${{ needs.build.outputs.version }}"
+          NOTES="$(cat << 'EOM'
           ${{ needs.build.outputs.changelog }}
+
+          ### Install locally
+
+          Download `${{ needs.build.outputs.artifact }}.zip` below, then in your IDE go to
+          **Settings > Plugins > gear icon > Install Plugin from Disk...**, pick the zip and restart.
           EOM
           )"
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" distributions/*.zip --clobber
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes "$NOTES" \
+              distributions/*.zip
+          fi

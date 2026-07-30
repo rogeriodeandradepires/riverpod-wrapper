@@ -4,7 +4,7 @@
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/me.pandras.riverpod_wrapper.svg)](https://plugins.jetbrains.com/plugin/me.pandras.riverpod_wrapper)
 
 <!-- Plugin description -->
-🔧 **Simplify Your Flutter Development with Riverpod Wrapper Plugin!** 🚀
+**Simplify Your Flutter Development with Riverpod Wrapper Plugin!** 🔧🚀
 
 The **Riverpod Wrapper** plugin for IntelliJ-based IDEs enhances your Flutter development experience by providing powerful tools to work with Hooks Riverpod's widgets. This plugin offers seamless integration and intuitive actions that make managing Flutter widgets easier and more efficient.
 
