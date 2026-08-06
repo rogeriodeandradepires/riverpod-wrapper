@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-06
+
+### Changed
+- Fixed the release pipeline so a released version is published to the JetBrains Marketplace and the installable plugin zip is attached to the GitHub release.
+
 ## [1.1.0] - 2026-07-29
 
 ### Changed
@@ -21,6 +26,7 @@
 - Intention actions to convert a HookConsumerWidget to StatefulHookConsumerWidget and vice versa.
 - Functionality to remove or unwrap specific widgets like Consumer and HookConsumer while preserving their child content.
 
-[Unreleased]: https://github.com/rogeriodeandradepires/riverpod_wrapper/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/rogeriodeandradepires/riverpod_wrapper/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/rogeriodeandradepires/riverpod_wrapper/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/rogeriodeandradepires/riverpod_wrapper/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/rogeriodeandradepires/riverpod_wrapper/commits/v1.0.0
