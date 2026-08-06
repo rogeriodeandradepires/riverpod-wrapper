@@ -206,9 +206,9 @@ jobs:
 #          cache-default-branch-only: true
 
   # Publish a public release on the GitHub Releases page with the installable plugin zip attached.
-  # Creating it fires the 'released' event, which runs the Release workflow and publishes the same
-  # version to JetBrains Marketplace. Re-running for an already released version only refreshes the
-  # asset, so the Marketplace publication happens once per version.
+  # The Release workflow is then invoked directly by the 'publish' job below. It cannot listen for
+  # the 'release' event instead: this job creates the release with the default GITHUB_TOKEN, and
+  # GitHub does not start workflow runs from events raised by that token.
   release:
     name: Release
     if: github.event_name != 'pull_request'
@@ -216,6 +216,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.publish.outputs.tag }}
+      created: ${{ steps.publish.outputs.created }}
     steps:
 
       # Check out current repository
@@ -243,6 +246,7 @@ jobs:
       # instead of failing, so merging to main again without a version bump is safe and does not
       # re-trigger the Marketplace publication.
       - name: Publish Release
+        id: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -257,12 +261,31 @@ jobs:
           EOM
           )"
 
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" distributions/*.zip --clobber
             gh release edit "$TAG" --notes "$NOTES"
+            echo "created=false" >> $GITHUB_OUTPUT
           else
             gh release create "$TAG" \
               --title "$TAG" \
               --notes "$NOTES" \
               distributions/*.zip
+            echo "created=true" >> $GITHUB_OUTPUT
           fi
+
+  # Publish the freshly released version to JetBrains Marketplace and announce it.
+  # Only runs when the release job actually created a new release, so re-merging to main without a
+  # version bump refreshes the asset without attempting a duplicate Marketplace upload.
+  publish:
+    name: Publish to Marketplace
+    needs: [ release ]
+    if: needs.release.outputs.created == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets: inherit
