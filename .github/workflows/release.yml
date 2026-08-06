@@ -1,15 +1,26 @@
-# GitHub Actions Workflow created for handling the release process based on the draft release prepared with the Build workflow.
+# GitHub Actions Workflow that publishes a released version to JetBrains Marketplace.
 # Running the publishPlugin task requires all following secrets to be provided: PUBLISH_TOKEN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, CERTIFICATE_CHAIN.
 # See https://plugins.jetbrains.com/docs/intellij/plugin-signing.html for more information.
 #
-# Triggered by the release the Build workflow publishes on every merge to main. The GitHub release
-# itself already carries the installable plugin zip; this workflow publishes the same version to
-# JetBrains Marketplace and replaces the asset with the signed artifact.
+# Called by the Build workflow right after it publishes the GitHub release, and runnable on demand
+# for a given tag. It is deliberately NOT triggered by the 'release' event: the Build workflow
+# creates that release with the default GITHUB_TOKEN, and GitHub does not start workflow runs from
+# events raised by that token, so a 'release' trigger would never fire.
 
 name: Release
 on:
-  release:
-    types: [released]
+  workflow_call:
+    inputs:
+      tag:
+        description: Git tag of the release to publish, e.g. v1.1.0
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Git tag of the release to publish, e.g. v1.1.0
+        required: true
+        type: string
 
 jobs:
 
@@ -22,11 +33,19 @@ jobs:
       pull-requests: write
     steps:
 
-      # Check out current repository
+      # Free GitHub Actions Environment Disk Space
+      # Building against the Android Studio distribution needs ~2 GB unpacked.
+      - name: Maximize Build Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+
+      # Check out the released tag
       - name: Fetch Sources
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ inputs.tag }}
 
       # Setup Java environment for the next steps
       - name: Setup Java
@@ -34,25 +53,86 @@ jobs:
         with:
           distribution: zulu
           java-version: 21
-          cache: gradle
 
-      # Set environment variables
+      # Setup Gradle
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Set environment variables.
+      # The release notes are read back out of CHANGELOG.md rather than off the GitHub release, so
+      # nothing user-authored is interpolated into a shell command.
       - name: Export Properties
         id: properties
         shell: bash
         run: |
-          CHANGELOG="$(cat << 'EOM' | sed -e 's/^[[:space:]]*$//g' -e '/./,$!d'
-          ${{ github.event.release.body }}
-          EOM
-          )"
-          
+          PROPERTIES="$(./gradlew properties --console=plain -q)"
+          VERSION="$(echo "$PROPERTIES" | grep "^version:" | cut -f2- -d ' ')"
+          PLUGIN_ID="$(grep -o '<id>[^<]*</id>' src/main/resources/META-INF/plugin.xml | head -1 | sed -e 's/<[^>]*>//g')"
+          CHANGELOG="$(./gradlew getChangelog --no-header --console=plain -q)"
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "pluginId=$PLUGIN_ID" >> $GITHUB_OUTPUT
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+          # patchChangelog is only meaningful while the version still lives under [Unreleased];
+          # once CHANGELOG.md carries a '## [VERSION]' section, re-patching would duplicate it.
+          if grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "needsChangelogPatch=false" >> $GITHUB_OUTPUT
+          else
+            echo "needsChangelogPatch=true" >> $GITHUB_OUTPUT
+          fi
+
+      # The tag only selects which commit to check out; the version that reaches the Marketplace comes
+      # from that commit's gradle.properties. A hand-typed dispatch could therefore pair a tag with a
+      # commit carrying a different version and publish one version under another's release. The Build
+      # workflow derives the tag from the version so it can never drift, but fail fast on the rest.
+      - name: Verify Tag Matches Version
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ steps.properties.outputs.version }}
+        run: |
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag $TAG does not match the plugin version $VERSION found in gradle.properties (expected v$VERSION). The GitHub release and the Marketplace version have to be the same."
+            exit 1
+          fi
+
+      # Decide whether this version still has to go to the Marketplace.
+      # Re-uploading an existing version is rejected, so a re-run would otherwise fail the job.
+      - name: Check Marketplace State
+        id: marketplace
+        shell: bash
+        env:
+          PLUGIN_ID: ${{ steps.properties.outputs.pluginId }}
+          VERSION: ${{ steps.properties.outputs.version }}
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        run: |
+          if [ -z "$PUBLISH_TOKEN" ]; then
+            echo "::notice::PUBLISH_TOKEN is not configured, skipping the Marketplace publication."
+            echo "publish=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          NUMERIC_ID="$(curl -sf "https://plugins.jetbrains.com/api/plugins/intellij/$PLUGIN_ID" | jq -r '.id // empty')" || true
+          if [ -z "$NUMERIC_ID" ]; then
+            echo "::warning::$PLUGIN_ID is not listed on the Marketplace yet. The first version has to be uploaded manually through the web UI; publishPlugin can only push updates."
+            echo "publish=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if curl -sf "https://plugins.jetbrains.com/api/plugins/$NUMERIC_ID/updates?size=100" \
+            | jq -e --arg v "$VERSION" 'any(.[]; .version == $v)' > /dev/null; then
+            echo "::notice::Version $VERSION is already on the Marketplace, skipping the publication."
+            echo "publish=false" >> $GITHUB_OUTPUT
+          else
+            echo "publish=true" >> $GITHUB_OUTPUT
+          fi
+
       # Update Unreleased section with the current release note
       - name: Patch Changelog
-        if: ${{ steps.properties.outputs.changelog != '' }}
+        if: ${{ steps.properties.outputs.needsChangelogPatch == 'true' && steps.properties.outputs.changelog != '' }}
         env:
           CHANGELOG: ${{ steps.properties.outputs.changelog }}
         run: |
@@ -64,6 +144,7 @@ jobs:
 
       # Publish the plugin to the Marketplace
       - name: Publish Plugin
+        if: ${{ steps.marketplace.outputs.publish == 'true' }}
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
@@ -75,17 +156,22 @@ jobs:
       - name: Upload Release Asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.event.release.tag_name }} ./build/distributions/*.zip --clobber
+        run: gh release upload ${{ inputs.tag }} ./build/distributions/*.zip --clobber
 
       # Create pull request
       - name: Create Pull Request
-        if: ${{ steps.properties.outputs.changelog != '' }}
+        if: ${{ steps.properties.outputs.needsChangelogPatch == 'true' && steps.properties.outputs.changelog != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${{ inputs.tag }}"
           BRANCH="changelog-update-$VERSION"
           LABEL="release changelog"
+
+          if git diff --quiet; then
+            echo "CHANGELOG.md is already up to date, nothing to open a pull request for."
+            exit 0
+          fi
 
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
@@ -93,7 +179,7 @@ jobs:
           git checkout -b $BRANCH
           git commit -am "Changelog update - $VERSION"
           git push --set-upstream origin $BRANCH
-          
+
           gh label create "$LABEL" \
             --description "Pull requests with release changelog update" \
             || true
@@ -105,6 +191,8 @@ jobs:
             --head $BRANCH
 
       - name: Notify on Telegram
+        if: ${{ steps.marketplace.outputs.publish == 'true' }}
+        continue-on-error: true
         uses: appleboy/telegram-action@v0.1.1
         with:
           to: ${{ secrets.TELEGRAM_TO }}
@@ -112,8 +200,8 @@ jobs:
           format: markdown
           message: |
             *✨ Good news everyone! ✨*
-            
-            A new version of the [*Riverpod Wrapper*](https://plugins.jetbrains.com/plugin/me.pandras.riverpod_wrapper) plugin has just been released!
-            You should find the update to {{ github.event.release.tag_name }} in your IDE soon. Y\'all know what to do 😉
-            
-            The release notes are [here](https://github.com/${{ github.repository }}/releases/tag/{{ github.event.release.tag_name }})
+
+            A new version of the [*Riverpod Wrapper*](https://plugins.jetbrains.com/plugin/24461) plugin has just been released!
+            You should find the update to ${{ inputs.tag }} in your IDE soon. Y\'all know what to do 😉
+
+            The release notes are [here](https://github.com/${{ github.repository }}/releases/tag/${{ inputs.tag }})
